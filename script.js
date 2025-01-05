@@ -1,6 +1,6 @@
 // Inicialização do Firebase
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-app.js";
-import { getFirestore, collection, doc, deleteDoc, updateDoc, addDoc, getDocs, query,where } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
+import { getFirestore, collection, doc, deleteDoc, updateDoc, getDoc, addDoc, getDocs, query,where } from "https://www.gstatic.com/firebasejs/9.21.0/firebase-firestore.js";
 
 // Configuração do Firebase
 const firebaseConfig = {
@@ -297,7 +297,6 @@ function deleteCommunity(communityId, regionId, regionName) {
 }
 
 
-
 // Função para contar o número de pessoas em uma comunidade
 async function getPeopleCountInCommunity(regionId, communityId) {
   const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
@@ -364,21 +363,64 @@ async function onRegionClick(regionId, regionName) {
 // Função para adicionar uma pessoa
 async function addPerson(communityId, regionId) {
   const personName = prompt("Digite o nome da pessoa:");
-  const personCPF = prompt("Digite o CPF da pessoa:");
+  
+  if (!personName) {
+    alert("O nome é obrigatório! Por favor, preencha o nome para continuar.");
+    return; // Se o nome estiver vazio, interrompe a função
+  }
 
-  if (personName && personCPF) {
-    try {
-      await addDoc(collection(db, "regions", regionId, "communities", communityId, "people"), { 
-        name: personName, 
-        cpf: personCPF 
-      });
-      console.log("Pessoa adicionada!");
-      listPeople(communityId, regionId); // Atualiza a lista de pessoas
-    } catch (e) {
-      console.error("Erro ao adicionar pessoa: ", e);
-    }
+  let personID = prompt("Digite o CPF ou RG da pessoa:");
+  
+  // Verifica se o CPF ou RG tem a formatação correta
+  const cpfPattern = /^\d{11}$/; // Padrão para CPF
+  const rgPattern = /^\d+$/; // Padrão para RG (só números)
+  
+  let isValid = false;
+  
+  // Se for CPF
+  if (cpfPattern.test(personID)) {
+    personID = formatCPF(personID); // Formata o CPF
+    isValid = true;
+  }
+  
+  // Se for RG
+  if (rgPattern.test(personID)) {
+    isValid = true;
+  }
+
+  if (!isValid) {
+    alert("CPF ou RG inválido! O CPF deve conter 11 dígitos numéricos ou o RG deve ser numérico.");
+    return; // Se o CPF/RG for inválido, interrompe a função
+  }
+
+  // Verifica se o CPF/RG já está cadastrado na comunidade
+  const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
+  const existingID = peopleSnapshot.docs.some(doc => doc.data().cpf === personID || doc.data().rg === personID);
+  
+  if (existingID) {
+    alert("Este CPF ou RG já está cadastrado na comunidade. Por favor, use outro CPF/RG.");
+    return; // Se o CPF/RG já existir, interrompe a função
+  }
+
+  try {
+    // Adiciona a pessoa ao banco de dados
+    await addDoc(collection(db, "regions", regionId, "communities", communityId, "people"), { 
+      name: personName, 
+      cpf: personID 
+    });
+    console.log("Pessoa adicionada!");
+    listPeople(communityId, regionId); // Atualiza a lista de pessoas
+  } catch (e) {
+    console.error("Erro ao adicionar pessoa: ", e);
   }
 }
+
+// Função para formatar o CPF
+function formatCPF(cpf) {
+  return cpf.replace(/\D/g, '') // Remove todos os caracteres não numéricos
+            .replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+}
+
 
 // Função para listar as pessoas de uma comunidade
 async function listPeople(communityId, regionId) {
@@ -426,6 +468,10 @@ async function downloadPDF(communityId, regionId) {
   const { jsPDF } = window.jspdf; // Certifique-se de que jsPDF está acessível
   const pdfDoc = new jsPDF();
 
+  // Carrega os nomes da comunidade e região a partir do banco de dados
+  const communityName = await getCommunityName(communityId);
+  const regionName = await getRegionName(regionId);
+
   // Adiciona a logo ao PDF
   const logo = await loadImage('defesa.jpeg'); // Carrega a imagem
   pdfDoc.addImage(logo, 'JPEG', 10, 10, 50, 20); // Adiciona a imagem (x, y, largura, altura)
@@ -434,8 +480,8 @@ async function downloadPDF(communityId, regionId) {
   pdfDoc.setFontSize(16);
   pdfDoc.text("Lista de Pessoas", 10, 40);
   pdfDoc.setFontSize(12);
-  pdfDoc.text(`Comunidade: ${communityId}`, 10, 50);
-  pdfDoc.text(`Região: ${regionId}`, 10, 55);
+  pdfDoc.text(`Comunidade: ${communityName}`, 10, 50);
+  pdfDoc.text(`Região: ${regionName}`, 10, 55);
   pdfDoc.line(10, 60, 200, 60); // Linha de separação
 
   // Cabeçalho da tabela
@@ -446,7 +492,9 @@ async function downloadPDF(communityId, regionId) {
 
   const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
   
-  let y = 70; // Posição inicial para o texto
+  let y = 75; // Posição inicial para o texto (ajustado para evitar sobreposição com cabeçalho)
+
+  // Adiciona as pessoas à tabela
   peopleSnapshot.forEach((personDoc) => {
     const personData = personDoc.data();
     const personName = personData.name;
@@ -456,6 +504,15 @@ async function downloadPDF(communityId, regionId) {
     pdfDoc.text(personName, 10, y);
     pdfDoc.text(personCPF, 100, y);
     y += 10; // Incrementa a posição y para a próxima linha
+
+    // Se o conteúdo ultrapassar o limite da página, cria uma nova página
+    if (y > 270) {
+      pdfDoc.addPage();
+      y = 10; // Reinicia a posição Y
+      pdfDoc.text("Nome", 10, 10);
+      pdfDoc.text("CPF", 100, 10);
+      pdfDoc.line(10, 12, 200, 12); // Linha de separação
+    }
   });
 
   // Salva o PDF
@@ -478,6 +535,19 @@ function loadImage(src) {
     img.onerror = (error) => reject(error);
   });
 }
+
+// Função para obter o nome da comunidade
+async function getCommunityName(communityId) {
+  const communityDoc = await getDoc(doc(db, "communities", communityId));
+  return communityDoc.exists() ? communityDoc.data().name : 'Comunidade Desconhecida';
+}
+
+// Função para obter o nome da região
+async function getRegionName(regionId) {
+  const regionDoc = await getDoc(doc(db, "regions", regionId));
+  return regionDoc.exists() ? regionDoc.data().name : 'Região Desconhecida';
+}
+
 
 // Evento para adicionar uma nova região
 document.getElementById("btnAddRegion").addEventListener("click", () => {

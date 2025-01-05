@@ -173,5 +173,13 @@ a:hover {
   align-self: flex-start; /* Alinha o botão à esquerda */
 }
 
+.table-bordered {
+  border: 1px solid orange; /* Borda laranja na tabela */
+}
+
+.table-bordered th, .table-bordered td {
+  border: 1px solid orange; /* Borda laranja nas células da tabela */
+}
+
 
 
