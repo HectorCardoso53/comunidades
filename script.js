@@ -197,6 +197,7 @@ async function listCommunities(regionId, regionName) {
   querySnapshot.forEach(async (doc) => {
     const communityId = doc.id;
     const communityName = doc.data().name;
+    const communityStatus = doc.data().status || "não atendida"; // Verifica o status da comunidade (se não tiver, assume que não foi atendida)
 
     // Conta o número de pessoas na comunidade
     const peopleCount = await getPeopleCountInCommunity(regionId, communityId);
@@ -220,7 +221,6 @@ async function listCommunities(regionId, regionName) {
     const editButton = document.createElement("button");
     editButton.classList.add("btn", "btn-edit", "ms-2");
 
-    // Substituindo o ícone FontAwesome por uma imagem
     const editIcon = document.createElement("img");
     editIcon.src = "editar.png"; // Caminho para a imagem de editar
     editIcon.alt = "Editar"; // Texto alternativo
@@ -228,7 +228,7 @@ async function listCommunities(regionId, regionName) {
     editIcon.style.height = "25px"; // Ajuste do tamanho da imagem  
 
     editButton.appendChild(editIcon);
-  
+
     editButton.addEventListener("click", (e) => {
       e.stopPropagation(); // Evita que o clique no botão de editar dispare o evento de clique na comunidade
       editCommunity(communityId, communityName, regionId, regionName); // Passando regionId e regionName
@@ -243,27 +243,80 @@ async function listCommunities(regionId, regionName) {
     deleteIcon.alt = "Excluir"; // Texto alternativo
     deleteIcon.style.width = "25px"; // Ajuste do tamanho da imagem
     deleteIcon.style.height = "25px"; // Ajuste do tamanho da imagem
-    
+
     deleteButton.appendChild(deleteIcon);
-    
+
     deleteButton.addEventListener("click", (e) => {
       e.stopPropagation(); // Evita que o clique no botão de excluir dispare o evento de clique na comunidade
       deleteCommunity(communityId, regionId, regionName); // Passando regionId e regionName
     });
 
+    // Cria o checkbox
+    const checkboxContainer = document.createElement("div");
+    checkboxContainer.classList.add("d-flex", "align-items-center");
+    checkboxContainer.style.paddingLeft = "10px"; // Ajuste do padding
+
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.classList.add("form-check-input");
+    checkbox.id = `checkbox-${communityId}`;
+    checkbox.style.width = "25px"; // Aumentando o tamanho do checkbox
+    checkbox.style.height = "25px"; // Aumentando o tamanho do checkbox
+
+    // Define o estado inicial do checkbox de acordo com o status da comunidade
+    checkbox.checked = communityStatus === "atendida";
+
+    const label = document.createElement("label");
+    label.setAttribute("for", `checkbox-${communityId}`);
+    label.classList.add("ms-2");
+
+    checkboxContainer.appendChild(checkbox);
+    checkboxContainer.appendChild(label);
+
+    // Cria o texto de status
+    const statusText = document.createElement("span");
+    statusText.classList.add("ms-2", "community-status");
+    statusText.textContent = communityStatus === "atendida" ? "Atendida" : "Não atendida";
+
+    // Adiciona cor ao texto de acordo com o status
+    statusText.style.color = communityStatus === "atendida" ? "green" : "red";
+
+    // Adiciona evento de mudança para atualizar o status
+    checkbox.addEventListener("change", async (e) => {
+      e.stopPropagation(); // Impede que o clique no checkbox dispare o evento de clique da listItem
+
+      const newStatus = checkbox.checked ? "atendida" : "não atendida";
+
+      // Atualiza o status da comunidade no banco de dados
+      await updateDoc(doc.ref, { status: newStatus });
+
+      // Atualiza o texto de status
+      statusText.textContent = newStatus === "atendida" ? "Atendida" : "Não atendida";
+
+      // Atualiza a cor do texto
+      statusText.style.color = newStatus === "atendida" ? "green" : "red";
+    });
+
     // Adiciona o evento de clique ao item da lista para selecionar a comunidade
-    listItem.addEventListener("click", () => onCommunityClick(communityId, communityName, regionId));
+    listItem.addEventListener("click", (e) => {
+      if (e.target.tagName !== "INPUT") { // Verifica se o clique não foi no checkbox
+        onCommunityClick(communityId, communityName, regionId);
+      }
+    });
 
     // Monta o item da lista
     listItem.appendChild(communityText);
     listItem.appendChild(communityBadge);
     listItem.appendChild(editButton);
     listItem.appendChild(deleteButton);
+    listItem.appendChild(checkboxContainer); // Coloca o checkbox após os botões
+    listItem.appendChild(statusText); // Adiciona o texto de status
 
     // Adiciona o item completo à lista de comunidades
     communityList.appendChild(listItem);
   });
 }
+
 
 // Função para editar a comunidade
 function editCommunity(communityId, communityName, regionId, regionName) {
@@ -360,7 +413,6 @@ async function onRegionClick(regionId, regionName) {
   };
 }
 
-// Função para adicionar uma pessoa
 async function addPerson(communityId, regionId) {
   const personName = prompt("Digite o nome da pessoa:");
   
@@ -371,27 +423,11 @@ async function addPerson(communityId, regionId) {
 
   let personID = prompt("Digite o CPF ou RG da pessoa:");
   
-  // Verifica se o CPF ou RG tem a formatação correta
-  const cpfPattern = /^\d{11}$/; // Padrão para CPF
-  const rgPattern = /^\d+$/; // Padrão para RG (só números)
-  
-  let isValid = false;
-  
-  // Se for CPF
-  if (cpfPattern.test(personID)) {
-    personID = formatCPF(personID); // Formata o CPF
-    isValid = true;
-  }
-  
-  // Se for RG
-  if (rgPattern.test(personID)) {
-    isValid = true;
-  }
-
-  if (!isValid) {
-    alert("CPF ou RG inválido! O CPF deve conter 11 dígitos numéricos ou o RG deve ser numérico.");
-    return; // Se o CPF/RG for inválido, interrompe a função
-  }
+// Sem validação do CPF/RG neste momento
+if (!personID) {
+  alert("O CPF ou RG é obrigatório! Por favor, preencha o CPF/RG para continuar.");
+  return; // Se o CPF/RG estiver vazio, interrompe a função
+}
 
   // Verifica se o CPF/RG já está cadastrado na comunidade
   const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
@@ -415,14 +451,41 @@ async function addPerson(communityId, regionId) {
   }
 }
 
-// Função para formatar o CPF
-function formatCPF(cpf) {
-  return cpf.replace(/\D/g, '') // Remove todos os caracteres não numéricos
-            .replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4');
+// Certifique-se de que essas funções estão fora de qualquer outra função.
+async function editPerson(personId, communityId, regionId, personName) {
+  const newPersonName = prompt("Digite o novo nome da pessoa:", personName);
+  
+  if (newPersonName && newPersonName !== personName) {
+    try {
+      const personRef = doc(db, "regions", regionId, "communities", communityId, "people", personId);
+      await updateDoc(personRef, { name: newPersonName });
+      alert("Pessoa atualizada com sucesso!");
+      listPeople(communityId, regionId); // Recarrega a lista de pessoas
+    } catch (e) {
+      console.error("Erro ao atualizar pessoa: ", e);
+      alert("Erro ao atualizar pessoa. Tente novamente.");
+    }
+  } else {
+    alert("O nome não foi alterado ou está vazio.");
+  }
 }
 
+async function deletePerson(personId, communityId, regionId, personName) {
+  const confirmDelete = confirm(`Tem certeza que deseja excluir a pessoa "${personName}"?`);
+  
+  if (confirmDelete) {
+    try {
+      const personRef = doc(db, "regions", regionId, "communities", communityId, "people", personId);
+      await deleteDoc(personRef);
+      alert("Pessoa excluída com sucesso!");
+      listPeople(communityId, regionId); // Recarrega a lista de pessoas
+    } catch (e) {
+      console.error("Erro ao excluir pessoa: ", e);
+      alert("Erro ao excluir pessoa. Tente novamente.");
+    }
+  }
+}
 
-// Função para listar as pessoas de uma comunidade
 async function listPeople(communityId, regionId) {
   const querySnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
   const peopleList = document.getElementById("peopleList");
@@ -430,14 +493,185 @@ async function listPeople(communityId, regionId) {
 
   querySnapshot.forEach((doc) => {
     const personData = doc.data();
-    const listItem = document.createElement("tr");
-    listItem.innerHTML = `
-      <td>${personData.name}</td>
-      <td>${personData.cpf}</td>
-    `;
-    peopleList.appendChild(listItem);
+    const personId = doc.id; // Aqui está o id da pessoa
+
+    // Cria a linha da tabela para cada pessoa
+    const row = document.createElement("tr");
+
+    // Nome da pessoa
+    const nameCell = document.createElement("td");
+
+    // Cria um contêiner flexível para nome e botões
+    const nameContainer = document.createElement("div");
+    nameContainer.classList.add("d-flex", "justify-content-between", "align-items-center", "w-100"); // Adicionando w-100 para garantir que ocupe toda a largura da célula
+
+    // Adiciona o nome da pessoa
+    const nameText = document.createElement("span");
+    nameText.textContent = personData.name;
+    nameContainer.appendChild(nameText);
+
+    // Adiciona botões de editar e excluir dentro da célula de nome
+    const nameActions = document.createElement("div");
+    nameActions.classList.add("d-flex", "justify-content-end", "align-items-center"); // Ajuste para alinhar à direita
+
+    // Botão de editar nome
+    const editNameButton = document.createElement("button");
+    editNameButton.classList.add("btn", "btn-edit", "ms-2");
+
+    const editNameIcon = document.createElement("img");
+    editNameIcon.src = "editar.png"; // Caminho para a imagem de editar
+    editNameIcon.alt = "Editar Nome"; // Texto alternativo
+    editNameIcon.style.width = "20px"; // Ajuste do tamanho da imagem
+    editNameIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+
+    editNameButton.appendChild(editNameIcon);
+    editNameButton.addEventListener("click", (e) => {
+      e.stopPropagation(); // Evita que o clique no botão de editar dispare o evento de clique na pessoa
+      editPersonName(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+    });
+
+    // Botão de excluir nome
+    const deleteNameButton = document.createElement("button");
+    deleteNameButton.classList.add("btn", "btn-delete", "ms-2");
+
+    const deleteNameIcon = document.createElement("img");
+    deleteNameIcon.src = "excluir.png"; // Caminho para a imagem de excluir
+    deleteNameIcon.alt = "Excluir Nome"; // Texto alternativo
+    deleteNameIcon.style.width = "20px"; // Ajuste do tamanho da imagem
+    deleteNameIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+
+    deleteNameButton.appendChild(deleteNameIcon);
+    deleteNameButton.addEventListener("click", (e) => {
+      e.stopPropagation(); // Evita que o clique no botão de excluir dispare o evento de clique na pessoa
+      deletePerson(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+    });
+
+    nameActions.appendChild(editNameButton);
+    nameActions.appendChild(deleteNameButton);
+
+    // Atribui os botões ao nome
+    nameContainer.appendChild(nameActions);
+
+    // Atribui o contêiner completo de nome e botões à célula
+    nameCell.appendChild(nameContainer);
+
+    // CPF ou RG da pessoa
+    const idCell = document.createElement("td");
+
+    // Cria um contêiner flexível para CPF e botões
+    const cpfContainer = document.createElement("div");
+    cpfContainer.classList.add("d-flex", "justify-content-between", "align-items-center", "w-100");
+
+    // Adiciona o CPF da pessoa
+    const cpfText = document.createElement("span");
+    cpfText.textContent = personData.cpf;  // Aqui vamos exibir o CPF
+    cpfContainer.appendChild(cpfText);
+
+    // Adiciona botões de editar e excluir dentro da célula de CPF
+    const cpfActions = document.createElement("div");
+    cpfActions.classList.add("d-flex", "justify-content-end", "align-items-center"); // Ajuste para alinhar à direita
+
+    // Botão de editar CPF/RG
+    const editCpfButton = document.createElement("button");
+    editCpfButton.classList.add("btn", "btn-edit", "ms-2");
+
+    const editCpfIcon = document.createElement("img");
+    editCpfIcon.src = "editar.png"; // Caminho para a imagem de editar
+    editCpfIcon.alt = "Editar CPF/RG"; // Texto alternativo
+    editCpfIcon.style.width = "20px"; // Ajuste do tamanho da imagem
+    editCpfIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+
+    editCpfButton.appendChild(editCpfIcon);
+    editCpfButton.addEventListener("click", (e) => {
+      e.stopPropagation(); // Evita que o clique no botão de editar dispare o evento de clique na pessoa
+      editPersonCpf(personId, communityId, regionId, personData.cpf); // Passando personId, communityId, regionId e personCpf
+    });
+
+    // Botão de excluir CPF/RG
+    const deleteCpfButton = document.createElement("button");
+    deleteCpfButton.classList.add("btn", "btn-delete", "ms-2");
+
+    const deleteCpfIcon = document.createElement("img");
+    deleteCpfIcon.src = "excluir.png"; // Caminho para a imagem de excluir
+    deleteCpfIcon.alt = "Excluir CPF/RG"; // Texto alternativo
+    deleteCpfIcon.style.width = "20px"; // Ajuste do tamanho da imagem
+    deleteCpfIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+
+    deleteCpfButton.appendChild(deleteCpfIcon);
+    deleteCpfButton.addEventListener("click", (e) => {
+      e.stopPropagation(); // Evita que o clique no botão de excluir dispare o evento de clique na pessoa
+      deletePerson(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+    });
+
+    cpfActions.appendChild(editCpfButton);
+    cpfActions.appendChild(deleteCpfButton);
+
+    // Atribui os botões ao CPF
+    cpfContainer.appendChild(cpfActions);
+
+    // Atribui o contêiner completo de CPF e botões à célula
+    idCell.appendChild(cpfContainer);
+
+    // Monta a linha com as células (nome, CPF/RG e ações)
+    row.appendChild(nameCell);
+    row.appendChild(idCell);
+
+    // Adiciona a linha na tabela
+    peopleList.appendChild(row);
   });
 }
+
+
+
+// Função para editar o nome
+function editPersonName(personId, communityId, regionId, currentName) {
+  const newName = prompt("Digite o novo nome da pessoa:", currentName);
+  if (newName && newName !== currentName) {
+    const personRef = doc(db, "regions", regionId, "communities", communityId, "people", personId);
+    updateDoc(personRef, { name: newName })
+      .then(() => {
+        console.log("Nome atualizado!");
+        listPeople(communityId, regionId); // Atualiza a lista de pessoas
+      })
+      .catch((e) => {
+        console.error("Erro ao atualizar nome: ", e);
+      });
+  }
+}
+
+// Função para editar o CPF/RG
+function editPersonCpf(personId, communityId, regionId, currentCpf) {
+  const newCpf = prompt("Digite o novo CPF ou RG da pessoa:", currentCpf);
+  if (newCpf && newCpf !== currentCpf) {
+    const personRef = doc(db, "regions", regionId, "communities", communityId, "people", personId);
+    updateDoc(personRef, { cpf: newCpf })
+      .then(() => {
+        console.log("CPF/RG atualizado!");
+        listPeople(communityId, regionId); // Atualiza a lista de pessoas
+      })
+      .catch((e) => {
+        console.error("Erro ao atualizar CPF/RG: ", e);
+      });
+  }
+}
+
+
+// Função para editar o nome
+function editName(personId, communityId, regionId, currentName) {
+  const newName = prompt("Digite o novo nome da pessoa:", currentName);
+  if (newName && newName !== currentName) {
+    const personRef = doc(db, "regions", regionId, "communities", communityId, "people", personId);
+    updateDoc(personRef, { name: newName })
+      .then(() => {
+        console.log("Nome atualizado!");
+        listPeople(communityId, regionId); // Atualiza a lista de pessoas
+      })
+      .catch((e) => {
+        console.error("Erro ao atualizar nome: ", e);
+      });
+  }
+}
+
 
 // Função para quando uma comunidade for clicada
 async function onCommunityClick(communityId, communityName, regionId) {
@@ -463,61 +697,86 @@ async function onCommunityClick(communityId, communityName, regionId) {
   });
 }
 
-// Função para baixar a lista de pessoas em PDF
 async function downloadPDF(communityId, regionId) {
-  const { jsPDF } = window.jspdf; // Certifique-se de que jsPDF está acessível
+  const { jsPDF } = window.jspdf; 
   const pdfDoc = new jsPDF();
 
   // Carrega os nomes da comunidade e região a partir do banco de dados
-  const communityName = await getCommunityName(communityId);
+  const communityName = await getCommunityName(communityId, regionId); 
   const regionName = await getRegionName(regionId);
 
-  // Adiciona a logo ao PDF
-  const logo = await loadImage('defesa.jpeg'); // Carrega a imagem
-  pdfDoc.addImage(logo, 'JPEG', 10, 10, 50, 20); // Adiciona a imagem (x, y, largura, altura)
+  // Adiciona a logo centralizada no topo da página
+  const logo = await loadImage('defesa.jpeg'); 
+  const pageWidth = pdfDoc.internal.pageSize.width;
+  const logoWidth = 50; // Ajuste a largura da logo
+  const logoHeight = 50; // Ajuste a altura da logo
+  const logoX = (pageWidth - logoWidth) / 2; // Centraliza a logo
+  pdfDoc.addImage(logo, 'JPEG', logoX, 10, logoWidth, logoHeight);
 
-  // Adiciona um título ao PDF
-  pdfDoc.setFontSize(16);
+  // Adiciona um título ao PDF com cor e estilo
+  pdfDoc.setFontSize(18);
+  pdfDoc.setTextColor(0, 102, 204); // Cor do título (azul)
   pdfDoc.text("Lista de Pessoas", 10, 40);
   pdfDoc.setFontSize(12);
+  pdfDoc.setTextColor(0, 0, 0); // Cor do texto normal
   pdfDoc.text(`Comunidade: ${communityName}`, 10, 50);
   pdfDoc.text(`Região: ${regionName}`, 10, 55);
-  pdfDoc.line(10, 60, 200, 60); // Linha de separação
+  pdfDoc.line(10, 60, 200, 60); 
+
+  // Criação da tabela com bordas azuis
+  const tableStartY = 70;
+  const tableWidth = 180;
+  const columnWidth = tableWidth / 2;
 
   // Cabeçalho da tabela
   pdfDoc.setFontSize(12);
-  pdfDoc.text("Nome", 10, 65);
-  pdfDoc.text("CPF", 100, 65);
-  pdfDoc.line(10, 67, 200, 67); // Linha de separação
+  pdfDoc.setTextColor(255, 255, 255); // Cor do texto do cabeçalho (branco)
+  pdfDoc.setFillColor(0, 102, 204); // Cor de fundo do cabeçalho (azul)
+  pdfDoc.rect(10, tableStartY, columnWidth, 8, 'F'); // Caixa de fundo para o título da coluna 'Nome'
+  pdfDoc.text("Nome", 15, tableStartY + 6);
+  pdfDoc.rect(10 + columnWidth, tableStartY, columnWidth, 8, 'F'); // Caixa de fundo para o título da coluna 'CPF'
+  pdfDoc.text("CPF", 115, tableStartY + 6);
+
+  pdfDoc.line(10, tableStartY + 8, 200, tableStartY + 8); // Linha de separação
+
+  let y = tableStartY + 10;
 
   const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
-  
-  let y = 75; // Posição inicial para o texto (ajustado para evitar sobreposição com cabeçalho)
 
-  // Adiciona as pessoas à tabela
+  // Adiciona as pessoas à tabela com bordas
   peopleSnapshot.forEach((personDoc) => {
     const personData = personDoc.data();
     const personName = personData.name;
     const personCPF = personData.cpf;
 
-    // Adiciona os dados à tabela
-    pdfDoc.text(personName, 10, y);
-    pdfDoc.text(personCPF, 100, y);
-    y += 10; // Incrementa a posição y para a próxima linha
+    // Formatação do CPF (opcional)
+    const formattedCPF = personCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
+
+    // Adiciona os dados à tabela com bordas
+    pdfDoc.setTextColor(0, 0, 0); // Cor do texto das pessoas (preto)
+    pdfDoc.text(personName, 15, y);
+    pdfDoc.text(formattedCPF, 115, y);
+    y += 10;
 
     // Se o conteúdo ultrapassar o limite da página, cria uma nova página
     if (y > 270) {
       pdfDoc.addPage();
-      y = 10; // Reinicia a posição Y
+      y = 10;
       pdfDoc.text("Nome", 10, 10);
-      pdfDoc.text("CPF", 100, 10);
-      pdfDoc.line(10, 12, 200, 12); // Linha de separação
+      pdfDoc.text("CPF", 120, 10);
+      pdfDoc.line(10, 12, 200, 12);
     }
   });
+
+  // Adiciona o número da página
+  const pageHeight = pdfDoc.internal.pageSize.height; // Obtém a altura da página corretamente
+  pdfDoc.text("Página " + pdfDoc.internal.getNumberOfPages(), 150, pageHeight - 10); // Página atual
 
   // Salva o PDF
   pdfDoc.save("lista_de_pessoas.pdf");
 }
+
+
 
 // Função auxiliar para carregar a imagem e convertê-la para Base64
 function loadImage(src) {
@@ -537,15 +796,71 @@ function loadImage(src) {
 }
 
 // Função para obter o nome da comunidade
-async function getCommunityName(communityId) {
-  const communityDoc = await getDoc(doc(db, "communities", communityId));
-  return communityDoc.exists() ? communityDoc.data().name : 'Comunidade Desconhecida';
+async function getCommunityName(communityId, regionId) {
+  // Verifica se os IDs foram passados corretamente
+  if (!communityId || !regionId) {
+    console.log("Community ID:", communityId);
+console.log("Region ID:", regionId);
+
+    console.error("ID da comunidade ou região não fornecido.");
+    return "ID inválido"; // Retorna um erro claro se os IDs não estiverem definidos
+  }
+
+  try {
+    // Acesse o caminho correto no Firestore para a comunidade
+    const communityRef = doc(db, "regions", regionId, "communities", communityId);
+    const communityDoc = await getDoc(communityRef);
+
+    // Verifica se o documento existe
+    if (communityDoc.exists()) {
+      // Aqui, você acessa diretamente o campo "name" dentro do documento da comunidade
+      const communityName = communityDoc.data().name;
+
+      // Verifica se o campo "name" existe e retorna o valor
+      if (communityName) {
+        return communityName; // Retorna o nome da comunidade
+      } else {
+        console.log("Nome da comunidade não encontrado");
+        return "Nome não encontrado"; // Retorna um valor padrão caso o nome não seja encontrado
+      }
+    } else {
+      console.log("Comunidade não encontrada");
+      return "Comunidade não encontrada"; // Retorna um valor padrão caso a comunidade não seja encontrada
+    }
+  } catch (error) {
+    console.error("Erro ao obter nome da comunidade:", error);
+    return "Erro ao obter nome"; // Retorna um erro genérico caso ocorra uma falha na consulta
+  }
 }
+
+
 
 // Função para obter o nome da região
 async function getRegionName(regionId) {
-  const regionDoc = await getDoc(doc(db, "regions", regionId));
-  return regionDoc.exists() ? regionDoc.data().name : 'Região Desconhecida';
+  if (!regionId) {
+    console.error("ID da região não fornecido.");
+    return "ID inválido"; // Retorna um erro claro se o ID da região não for fornecido
+  }
+
+  try {
+    // Acesse o caminho correto no Firestore para a região
+    const regionRef = doc(db, "regions", regionId);
+    const regionDoc = await getDoc(regionRef);
+
+    if (regionDoc.exists()) {
+      const regionName = regionDoc.data().name;
+      if (regionName) {
+        return regionName; // Retorna o nome da região
+      } else {
+        return "Nome da região não encontrado";
+      }
+    } else {
+      return "Região não encontrada";
+    }
+  } catch (error) {
+    console.error("Erro ao obter nome da região:", error);
+    return "Erro ao obter nome";
+  }
 }
 
 
@@ -560,7 +875,6 @@ document.getElementById("btnAddRegion").addEventListener("click", () => {
     addRegion(regionName);
   }
 });
-
 
 // Carrega as regiões ao iniciar
 listRegions();
