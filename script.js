@@ -433,10 +433,10 @@ if (!personID) {
   const peopleSnapshot = await getDocs(collection(db, "regions", regionId, "communities", communityId, "people"));
   const existingID = peopleSnapshot.docs.some(doc => doc.data().cpf === personID || doc.data().rg === personID);
   
-  if (existingID) {
-    alert("Este CPF ou RG já está cadastrado na comunidade. Por favor, use outro CPF/RG.");
-    return; // Se o CPF/RG já existir, interrompe a função
-  }
+  //if (existingID) {
+   // alert("Este CPF ou RG já está cadastrado na comunidade. Por favor, use outro CPF/RG.");
+   // return; // Se o CPF/RG já existir, interrompe a função
+  //}
 
   try {
     // Adiciona a pessoa ao banco de dados
@@ -491,19 +491,30 @@ async function listPeople(communityId, regionId) {
   const peopleList = document.getElementById("peopleList");
   peopleList.innerHTML = ""; // Limpa a lista de pessoas
 
-  querySnapshot.forEach((doc) => {
-    const personData = doc.data();
-    const personId = doc.id; // Aqui está o id da pessoa
+  // Converte os documentos para um array e ordena pelo nome
+  const peopleArray = querySnapshot.docs.map((doc) => ({
+    id: doc.id,
+    ...doc.data()
+  })).sort((a, b) => a.name.localeCompare(b.name)); // Ordena os nomes em ordem alfabética
+
+  // Itera sobre a lista ordenada para exibir os dados com numeração
+  peopleArray.forEach((personData, index) => {
+    const personId = personData.id;
 
     // Cria a linha da tabela para cada pessoa
     const row = document.createElement("tr");
+
+    // Número da pessoa (começa em 1)
+    const numberCell = document.createElement("td");
+    numberCell.textContent = index + 1; // Index começa em 0, por isso somamos 1
+    row.appendChild(numberCell);
 
     // Nome da pessoa
     const nameCell = document.createElement("td");
 
     // Cria um contêiner flexível para nome e botões
     const nameContainer = document.createElement("div");
-    nameContainer.classList.add("d-flex", "justify-content-between", "align-items-center", "w-100"); // Adicionando w-100 para garantir que ocupe toda a largura da célula
+    nameContainer.classList.add("d-flex", "justify-content-between", "align-items-center", "w-100");
 
     // Adiciona o nome da pessoa
     const nameText = document.createElement("span");
@@ -512,22 +523,22 @@ async function listPeople(communityId, regionId) {
 
     // Adiciona botões de editar e excluir dentro da célula de nome
     const nameActions = document.createElement("div");
-    nameActions.classList.add("d-flex", "justify-content-end", "align-items-center"); // Ajuste para alinhar à direita
+    nameActions.classList.add("d-flex", "justify-content-end", "align-items-center");
 
     // Botão de editar nome
     const editNameButton = document.createElement("button");
     editNameButton.classList.add("btn", "btn-edit", "ms-2");
 
     const editNameIcon = document.createElement("img");
-    editNameIcon.src = "editar.png"; // Caminho para a imagem de editar
-    editNameIcon.alt = "Editar Nome"; // Texto alternativo
-    editNameIcon.style.width = "20px"; // Ajuste do tamanho da imagem
-    editNameIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+    editNameIcon.src = "editar.png";
+    editNameIcon.alt = "Editar Nome";
+    editNameIcon.style.width = "20px";
+    editNameIcon.style.height = "20px";
 
     editNameButton.appendChild(editNameIcon);
     editNameButton.addEventListener("click", (e) => {
-      e.stopPropagation(); // Evita que o clique no botão de editar dispare o evento de clique na pessoa
-      editPersonName(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+      e.stopPropagation();
+      editPersonName(personId, communityId, regionId, personData.name);
     });
 
     // Botão de excluir nome
@@ -535,92 +546,93 @@ async function listPeople(communityId, regionId) {
     deleteNameButton.classList.add("btn", "btn-delete", "ms-2");
 
     const deleteNameIcon = document.createElement("img");
-    deleteNameIcon.src = "excluir.png"; // Caminho para a imagem de excluir
-    deleteNameIcon.alt = "Excluir Nome"; // Texto alternativo
-    deleteNameIcon.style.width = "20px"; // Ajuste do tamanho da imagem
-    deleteNameIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+    deleteNameIcon.src = "excluir.png";
+    deleteNameIcon.alt = "Excluir Nome";
+    deleteNameIcon.style.width = "20px";
+    deleteNameIcon.style.height = "20px";
 
     deleteNameButton.appendChild(deleteNameIcon);
     deleteNameButton.addEventListener("click", (e) => {
-      e.stopPropagation(); // Evita que o clique no botão de excluir dispare o evento de clique na pessoa
-      deletePerson(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+      e.stopPropagation();
+      deletePerson(personId, communityId, regionId, personData.name);
     });
 
     nameActions.appendChild(editNameButton);
     nameActions.appendChild(deleteNameButton);
 
-    // Atribui os botões ao nome
     nameContainer.appendChild(nameActions);
-
-    // Atribui o contêiner completo de nome e botões à célula
     nameCell.appendChild(nameContainer);
+    row.appendChild(nameCell);
 
-    // CPF ou RG da pessoa
+    // CPF da pessoa
     const idCell = document.createElement("td");
 
-    // Cria um contêiner flexível para CPF e botões
     const cpfContainer = document.createElement("div");
     cpfContainer.classList.add("d-flex", "justify-content-between", "align-items-center", "w-100");
 
-    // Adiciona o CPF da pessoa
     const cpfText = document.createElement("span");
-    cpfText.textContent = personData.cpf;  // Aqui vamos exibir o CPF
+    cpfText.textContent = personData.cpf;
     cpfContainer.appendChild(cpfText);
 
-    // Adiciona botões de editar e excluir dentro da célula de CPF
     const cpfActions = document.createElement("div");
-    cpfActions.classList.add("d-flex", "justify-content-end", "align-items-center"); // Ajuste para alinhar à direita
+    cpfActions.classList.add("d-flex", "justify-content-end", "align-items-center");
 
-    // Botão de editar CPF/RG
+    // Botão de editar CPF
     const editCpfButton = document.createElement("button");
     editCpfButton.classList.add("btn", "btn-edit", "ms-2");
 
     const editCpfIcon = document.createElement("img");
-    editCpfIcon.src = "editar.png"; // Caminho para a imagem de editar
-    editCpfIcon.alt = "Editar CPF/RG"; // Texto alternativo
-    editCpfIcon.style.width = "20px"; // Ajuste do tamanho da imagem
-    editCpfIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+    editCpfIcon.src = "editar.png";
+    editCpfIcon.alt = "Editar CPF";
+    editCpfIcon.style.width = "20px";
+    editCpfIcon.style.height = "20px";
 
     editCpfButton.appendChild(editCpfIcon);
     editCpfButton.addEventListener("click", (e) => {
-      e.stopPropagation(); // Evita que o clique no botão de editar dispare o evento de clique na pessoa
-      editPersonCpf(personId, communityId, regionId, personData.cpf); // Passando personId, communityId, regionId e personCpf
+      e.stopPropagation();
+      editPersonCpf(personId, communityId, regionId, personData.cpf);
     });
 
-    // Botão de excluir CPF/RG
+    // Botão de excluir CPF
     const deleteCpfButton = document.createElement("button");
     deleteCpfButton.classList.add("btn", "btn-delete", "ms-2");
 
     const deleteCpfIcon = document.createElement("img");
-    deleteCpfIcon.src = "excluir.png"; // Caminho para a imagem de excluir
-    deleteCpfIcon.alt = "Excluir CPF/RG"; // Texto alternativo
-    deleteCpfIcon.style.width = "20px"; // Ajuste do tamanho da imagem
-    deleteCpfIcon.style.height = "20px"; // Ajuste do tamanho da imagem  
+    deleteCpfIcon.src = "excluir.png";
+    deleteCpfIcon.alt = "Excluir CPF";
+    deleteCpfIcon.style.width = "20px";
+    deleteCpfIcon.style.height = "20px";
 
     deleteCpfButton.appendChild(deleteCpfIcon);
     deleteCpfButton.addEventListener("click", (e) => {
-      e.stopPropagation(); // Evita que o clique no botão de excluir dispare o evento de clique na pessoa
-      deletePerson(personId, communityId, regionId, personData.name); // Passando personId, communityId, regionId e personName
+      e.stopPropagation();
+      deletePerson(personId, communityId, regionId, personData.name);
     });
 
     cpfActions.appendChild(editCpfButton);
     cpfActions.appendChild(deleteCpfButton);
 
-    // Atribui os botões ao CPF
     cpfContainer.appendChild(cpfActions);
-
-    // Atribui o contêiner completo de CPF e botões à célula
     idCell.appendChild(cpfContainer);
-
-    // Monta a linha com as células (nome, CPF/RG e ações)
-    row.appendChild(nameCell);
     row.appendChild(idCell);
 
-    // Adiciona a linha na tabela
     peopleList.appendChild(row);
   });
 }
 
+// Função para filtrar pelo nome da pesssoa
+document.getElementById("searchInput").addEventListener("input", function () {
+  let filter = this.value.toLowerCase();
+  let rows = document.querySelectorAll("#peopleList tr");
+
+  rows.forEach(row => {
+    let nameCell = row.querySelector("td:nth-child(2)"); // Segunda coluna (Nome)
+    if (nameCell) {
+      let name = nameCell.textContent.toLowerCase();
+      row.style.display = name.includes(filter) ? "" : "none"; // Mostra ou oculta a linha
+    }
+  });
+});
 
 
 // Função para editar o nome

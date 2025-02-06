@@ -35,29 +35,43 @@
       <button id="btnAddCommunity" class="btn btn-primary w-100 mb-3">Adicionar Comunidade</button>
     </section>
 
-    <!-- Seção de Pessoas -->
-    <section id="people" style="display: none;" class="mb-4">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="text-orange">Pessoas em <span id="selectedCommunity"></span></h2>
-        <button id="backToCommunities" class="btn btn-outline-secondary">Voltar</button>
-      </div>
-      <button id="btnAddPerson" class="btn btn-primary w-100 mb-3">Adicionar Pessoa</button>
-      <button id="btnDownloadPDF" class="btn btn-success w-100 mb-3">Baixar Lista de Pessoas em PDF</button>
-      <div class="table-responsive">
-        <table class="table table-bordered">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>CPF ou RG</th>
-            </tr>
-          </thead>
-          <tbody id="peopleList">
-            <!-- Pessoas serão renderizadas aqui -->
-          </tbody>
-        </table>
-      </div>
+<!-- Seção de Pessoas -->
+<section id="people" style="display: none;" class="mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <h2 class="text-orange mb-0">Pessoas em <span id="selectedCommunity"></span></h2>
+    
+    <div class="d-flex align-items-center gap-2">
+      <!-- Campo de pesquisa estilizado -->
+      <input type="text" id="searchInput" 
+             class="form-control form-control-sm rounded-pill px-3"
+             placeholder="Buscar pessoa..." style="max-width: 200px;">
       
-    </section>
+      <!-- Botão de voltar -->
+      <button id="backToCommunities" class="btn btn-outline-secondary btn-sm">
+        Voltar
+      </button>
+    </div>
+  </div>
+
+  <button id="btnAddPerson" class="btn btn-primary w-100 mb-3">Adicionar Pessoa</button>
+  <button id="btnDownloadPDF" class="btn btn-success w-100 mb-3">Baixar Lista de Pessoas em PDF</button>
+
+  <div class="table-responsive">
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>CPF ou RG</th>
+        </tr>
+      </thead>
+      <tbody id="peopleList">
+        <!-- Pessoas serão renderizadas aqui -->
+      </tbody>
+    </table>
+  </div>
+</section>
+
   </main>
 
   <footer class="text-white text-center py-3" style="background-color: #ff7f50;">
